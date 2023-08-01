@@ -1,0 +1,77 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn import svm, datasets
+from sklearn.metrics import auc
+from sklearn.model_selection import StratifiedKFold
+import numpy as np
+import matplotlib.pyplot as plt
+from itertools import cycle
+from sklearn import svm, datasets
+from sklearn.metrics import roc_curve, auc
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import label_binarize
+from sklearn.multiclass import OneVsRestClassifier
+from scipy import interp
+import xlwt
+import pandas as pd
+
+INFO_PATH = r'braf_fold1-3.xlsx'
+patient_info = pd.read_excel(INFO_PATH)
+A1 = patient_info.A1.tolist()
+A2 = patient_info.A2.tolist()
+A3 = patient_info.A3.tolist()
+
+
+One_predict = patient_info.fold1.tolist()
+Two_predict = patient_info.fold2.tolist()
+Three_predict = patient_info.fold3.tolist()
+
+y_score = np.array(list(zip(One_predict,  Two_predict, Three_predict)))
+
+y = np.array(list(zip(A1,  A2, A3)))
+print('y:',y)
+
+tprs = []
+aucs = []
+mean_fpr = np.linspace(0, 1, 100)
+fpr = dict()
+tpr = dict()
+roc_auc = dict()
+
+for i in range(3):
+    print('y_score[:, i]',y_score[:, i])
+    fpr[i], tpr[i], threshold = roc_curve(y[:, i], y_score[:, i])
+    roc_auc[i] = auc(fpr[i], tpr[i])
+    tprs.append(interp(mean_fpr, fpr[i], tpr[i]))
+    tprs[-1][0]=0.0
+    aucs.append(roc_auc[i])
+
+mean_tpr = np.mean(tprs, axis=0)
+mean_tpr[-1] = 1.0
+mean_auc = auc(mean_fpr, mean_tpr)
+std_auc = np.std(aucs,axis=0)
+
+
+lw=3
+plt.figure(figsize=(7.5,7))
+
+plt.plot(fpr[0],tpr[0], color='aqua',lw=lw, label='Fold 1        (AUC = {1:0.3F})'.format(0, roc_auc[0]))
+plt.plot(fpr[1],tpr[1], color='darkorange',lw=lw, label='Fold 2        (AUC = {1:0.3F})'.format(1, roc_auc[1]))
+plt.plot(fpr[2],tpr[2], color='cornflowerblue',lw=lw, label='Fold 3        (AUC = {1:0.3F})'.format(2, roc_auc[2]))
+plt.plot(mean_fpr, mean_tpr, color='black', label=r'Mean ROC (AUC = %0.3f)' % (mean_auc), lw=2, alpha=.8)
+
+std_tpr = np.std(tprs, axis=0)
+tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
+tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
+plt.fill_between(mean_fpr, tprs_lower, tprs_upper, color='grey', alpha=.2)
+
+plt.plot([0, 1], [0, 1], 'k--', lw=lw)
+plt.xlim([0.0, 1.0])
+plt.xticks(fontsize=16)
+plt.ylim([0.0, 1.05])
+plt.yticks(fontsize=16)
+plt.xlabel('False Positive Rate', fontdict={'size':20})
+plt.ylabel('True Positive Rate', fontdict={'size':20})
+plt.legend(loc="lower right",fontsize=16,frameon=False)
+
+plt.show()
